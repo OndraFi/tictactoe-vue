@@ -111,8 +111,8 @@ export default {
   },
   data() {
     return {
-      socket: io('http://localhost:9000'),
-      // socket: io('https://tictactoe-backend-eo1b.onrender.com:443', { transports : ['websocket'] }),
+      // socket: io('http://localhost:9000'),
+      socket: io('https://tictactoe-backend-eo1b.onrender.com:443', { transports : ['websocket'] }),
 
       // socket: io('https://tictactoe-backend.adaptable.app:443', { transports : ['websocket'] }),
       fields: null,
