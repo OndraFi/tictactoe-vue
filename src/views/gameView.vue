@@ -107,7 +107,7 @@ import {io} from "socket.io-client";
 import GameField from "@/components/game-field.vue";
 import shortId from "shortid"
 import {useStore} from "@/stores/store";
-
+import local from "@/conf/local";
 export default {
   name: "gameView",
   components: {GameField},
@@ -117,7 +117,7 @@ export default {
   },
   data() {
     return {
-      socket: io('http://localhost:9000'),
+      socket: io(local.SOCKET_URL),
       // socket: io('https://tictactoe-backend-eo1b.onrender.com:443', { transports : ['websocket'] }),
 
       // socket: io('https://tictactoe-backend.adaptable.app:443', { transports : ['websocket'] }),
