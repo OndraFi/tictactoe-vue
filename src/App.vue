@@ -5,7 +5,7 @@ import FooterMenu from "./components/footerMenu.vue";
 </script>
 
 <template>
-  <div class="bg-dark background text-light" style="min-height: 100vh">
+  <div class=" background text-light" style="min-height: 100vh">
     <navbar></navbar>
     <div class="container-md">
       <RouterView/>
@@ -15,7 +15,5 @@ import FooterMenu from "./components/footerMenu.vue";
 </template>
 
 <style scoped>
-.background {
-  background-image: linear-gradient(to right, #0b0317 0%, #00121a 100%);
-}
+
 </style>

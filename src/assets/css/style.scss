@@ -6,6 +6,26 @@
 *{
 }
 
+
+@media (max-width: 767px) {
+  .background {
+    background-color: #000a0e;
+  }
+}
+
+@media (min-width: 768px) {
+  .background{
+    background-image: linear-gradient(to right, #0b0317 0%, #00121a 100%);
+
+  }
+
+  .block:hover:before {
+    left: 250px;
+    background-image: linear-gradient(-60deg, #ff5858 0%, #f09819 100%);
+  }
+
+}
+
 .gradient-text {
   background: linear-gradient(-60deg, #ff5858 0%, #f09819 100%);
   -webkit-background-clip: text;
@@ -48,12 +68,6 @@
   transform: skewX(-30deg);
   transition: 0.3s;
   z-index: -1;
-}
-
-.block:hover:before {
-  left: 250px;
-  background-image: linear-gradient(-60deg, #ff5858 0%, #f09819 100%);
-
 }
 
 .block-no-hover{
