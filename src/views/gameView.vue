@@ -221,22 +221,36 @@ export default {
   },
   methods: {
     startGame(uid) {
+      console.log('startGame:'+this.type+this.mode);
       console.log(uid);
       console.log(this.type);
+      console.log(this.mode);
       const payload = {uid: uid}
       if (this.store.user)
         payload.nick = this.store.user.username;
-      switch (this.type) {
-        case "3":
-          this.socket.emit('startGame:3classic', payload);
-          break;
-        case "10":
-          this.socket.emit('startGame:10classic', payload);
-          break;
-        case "20":
-          this.socket.emit('startGame:20classic', payload);
-          break;
+      if(!(this.type ==="3" || this.type === '10' || this.type === '20'))
+        this.$router.push('/');
+      if(!(this.mode === 'classic' || this.mode === 'fast' || this.mode === 'double' || this.mode === 'ranked'))
+        this.$router.push('/');
+
+      if(this.mode === 'ranked'){
+        if(!this.store.user)
+          this.$router.push('/login');
+        payload.token = this.store.user.accessToken;
       }
+      // payload.type = this.type;
+      this.socket.emit('startGame:'+this.type+this.mode, payload);
+      // switch (this.type) {
+      //   case "3":
+      //     this.socket.emit('startGame:3'+this.mode, payload);
+      //     break;
+      //   case "10":
+      //     this.socket.emit('startGame:10'+this.mode, payload);
+      //     break;
+      //   case "20":
+      //     this.socket.emit('startGame:20'+this.mode, payload);
+      //     break;
+      // }
     },
     move(i, j) {
       const moveData = {i: i, j: j, uid: this.uid};
