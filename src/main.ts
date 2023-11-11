@@ -1,17 +1,25 @@
 import './assets/css/style.scss';
 import '@fortawesome/fontawesome-free/css/all.css';
-
+import 'bootstrap';
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import piniaPluginPersistedState from "pinia-plugin-persistedstate";
 
 
 
 import App from './App.vue'
 import router from './router'
+import local from './conf/local';
+import Api from './api/Api';
 
 const app = createApp(App)
 
-app.use(createPinia())
+
+const pinia = createPinia();
+pinia.use(piniaPluginPersistedState);
+
+app.use(pinia)
 app.use(router)
+app.config.globalProperties.$api = new Api(local.API_URL);
 
 app.mount('#app')

@@ -18,18 +18,18 @@
           </li>
         </ul>
         <ul class="navbar-nav ms-auto">
-          <li v-if="user" class="nav-item">
+          <li v-if="store.user" class="nav-item">
             <div class="dropdown" style="min-width: 6rem;">
               <button class="btn btn-secondary dropdown-toggle w-100" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="fa-solid fa-user"></i> {{user.username}}
+                <i class="fa-solid fa-user"></i> {{store.user.username}}
               </button>
               <ul class="dropdown-menu dropdown-menu-dark w-100" style="min-width: 0px !important;" aria-labelledby="dropdownMenuButton1">
-                <li class="">
+                <li class="py-1">
                   <router-link class="text-white text-decoration-none" role="button" to="/profile">
                     <i class="fa-regular fa-id-badge mx-2"></i>Profile
                   </router-link>
                 </li>
-                <li>
+                <li class="py-1">
                   <span role="button" v-on:click="logout">
                     <i class="fa-solid fa-right-from-bracket fa-rotate-180 mx-2"></i>Logout
                   </span>
@@ -38,10 +38,10 @@
             </div>
 <!--            <button v-on:click="logout" class="nav-link" aria-current="page">Logout</button>-->
           </li>
-          <li v-if="!user" class="nav-item">
+          <li v-if="!store.user" class="nav-item">
             <router-link class="nav-link" aria-current="page" to="login">Login</router-link>
           </li>
-          <li v-if="!user" class="nav-item">
+          <li v-if="!store.user" class="nav-item">
             <router-link class="nav-link" aria-current="page" to="register">Register</router-link>
           </li>
         </ul>
@@ -51,15 +51,21 @@
 </template>
 
 <script>
+import {useStore} from "@/stores/store";
+
 export default {
   name: "navbar",
   data (){
+    const store = useStore();
     return {
-      user: null
+      user: store.user,
+      store: store,
     }
   },mounted() {
   }, methods: {
     logout(){
+      this.store.$reset();
+      this.$router.push('/login');
       // const { logout } = useStrapiAuth()
       // logout()
     }
@@ -75,7 +81,6 @@ export default {
 .nav-link{
   color: white !important;
 }
-
 .nav-link:hover{
   color: #f09819 !important;
 }
