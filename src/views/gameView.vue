@@ -16,14 +16,16 @@
   <div class="row" v-if="roomStarted">
     <div class="col-12 col-md-8 text-center">
       <div class="p-3 m-2 w-50 ms-auto me-auto">
-        <span class="me-2 text-primary" v-if="!Imove && winner === null && players === 2"><i class="fa-solid fa-arrow-right fa-shake fa-lg"></i></span>
+        <span class="me-2 text-primary" v-if="!Imove && winner === null && players === 2"><i
+            class="fa-solid fa-arrow-right fa-shake fa-lg"></i></span>
         <span v-if="this.player1.uid !== this.uid">{{ this.player1.nick }}</span>
         <span v-else>{{ this.player2.nick }}</span>
       </div>
-      <game-field v-if="fields !== null" :fields="fields" :uid="uid" :socket="socket" :i="i"
+      <game-field :fields="fields" :uid="uid" :socket="socket" :i="i"
                   :j="j"></game-field>
       <div class="p-3 m-2 w-50 ms-auto me-auto">
-        <span class="me-2 text-primary" v-if="Imove && winner === null && players === 2"><i class="fa-solid fa-arrow-right fa-shake fa-lg"></i></span>
+        <span class="me-2 text-primary" v-if="Imove && winner === null && players === 2"><i
+            class="fa-solid fa-arrow-right fa-shake fa-lg"></i></span>
         <span v-if="this.player1.uid === this.uid">{{ this.player1.nick }}</span>
         <span v-else>{{ this.player2.nick }}</span>
       </div>
@@ -84,12 +86,15 @@
       <h2 v-if="winner != null">
         waiting for players to reset the game
       </h2>
-      <button v-if="!reset" v-on:click="resetGame" class="btn btn-play w-100 mt-3">reset game</button>
-      <button v-else class="btn btn-play w-100 mt-3" type="button" disabled>
-        <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
-        reset game
-      </button>
-      <br>
+      <h2 v-if="playerLeftAfterWin" class="mt-4">Your oponent left!</h2>
+      <div v-else>
+        <button v-if="!reset" v-on:click="resetGame" class="btn btn-play w-100 mt-3">reset game</button>
+        <button v-else class="btn btn-play w-100 mt-3" type="button" disabled>
+          <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
+          reset game
+        </button>
+        <br>
+      </div>
       <router-link to="/" class="btn btn-play w-100 mt-3">Go to homepage</router-link>
     </div>
   </div>
@@ -101,7 +106,8 @@ import {getSocket} from "@/utils/socket";
 import {io} from "socket.io-client";
 import GameField from "@/components/game-field.vue";
 import shortId from "shortid"
-
+import {useStore} from "@/stores/store";
+import local from "@/conf/local";
 export default {
   name: "gameView",
   components: {GameField},
@@ -111,10 +117,11 @@ export default {
   },
   data() {
     return {
-      // socket: io('http://localhost:9000'),
-      socket: io('https://tictactoe-backend-eo1b.onrender.com:443', { transports : ['websocket'] }),
+      socket: io(local.SOCKET_URL),
+      // socket: io('https://tictactoe-backend-eo1b.onrender.com:443', { transports : ['websocket'] }),
 
       // socket: io('https://tictactoe-backend.adaptable.app:443', { transports : ['websocket'] }),
+      store: useStore(),
       fields: null,
       winner: null,
       players: 0,
@@ -131,6 +138,7 @@ export default {
       user: null,
       player1: null,
       player2: null,
+      playerLeftAfterWin: false
     }
   }, mounted() {
     // this.socket = io('http://localhost:9000');
@@ -147,6 +155,7 @@ export default {
           gameID: this.gameID,
           uid: this.uid
         };
+        console.log("reconecting");
         this.socket.emit('reconnectToGame', payload);
       } else {
         this.uid = shortId.generate();
@@ -206,7 +215,8 @@ export default {
     })
 
     this.socket.on("game:end", () => {
-      this.$router.push('/');
+      this.playerLeftAfterWin = true;
+      // this.$router.push('/');
     })
   },
   methods: {
@@ -214,8 +224,8 @@ export default {
       console.log(uid);
       console.log(this.type);
       const payload = {uid: uid}
-      if (this.user)
-        payload.nick = this.user.username;
+      if (this.store.user)
+        payload.nick = this.store.user.username;
       switch (this.type) {
         case "3":
           this.socket.emit('startGame:3classic', payload);
