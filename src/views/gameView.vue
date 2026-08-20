@@ -3,18 +3,18 @@
     <div class="col-12 col-md-8 text-center position-relative">
       
       <div class="p-3 m-2 w-50 ms-auto me-auto" :class="{ 'opacity-25': isCustomCreator && playersConnected < 2 }">
-        <span class="me-2 text-primary" v-if="!Imove && !winner && playersConnected === 2">
+        <span class="me-2 text-primary" v-if="!Imove && !winner && playersConnected === 2 && !isPaused">
             <i class="fa-solid fa-arrow-right fa-shake fa-lg"></i>
         </span>
         <span>{{ opponentNick }}</span>
       </div>
 
-      <div :class="{ 'opacity-25': isCustomCreator && playersConnected < 2 }">
+      <div :class="{ 'opacity-25': (isCustomCreator && playersConnected < 2) || isPaused, 'pointer-events-none': isPaused }">
         <game-field :fields="fields" @player-move="handleMove"></game-field>
       </div>
 
       <div class="p-3 m-2 w-50 ms-auto me-auto" :class="{ 'opacity-25': isCustomCreator && playersConnected < 2 }">
-        <span class="me-2 text-primary" v-if="Imove && !winner && playersConnected === 2">
+        <span class="me-2 text-primary" v-if="Imove && !winner && playersConnected === 2 && !isPaused">
             <i class="fa-solid fa-arrow-right fa-shake fa-lg"></i>
         </span>
         <span>{{ myNick }}</span>
@@ -23,20 +23,21 @@
     
     <!-- Sidebar / Chat -->
     <div class="col-12 col-md-4 d-flex flex-column" style="height: 600px;">
-      <h2 v-if="Imove && !winner && playersConnected === 2" class="text-center mb-4">
+      <h2 v-if="Imove && !winner && playersConnected === 2 && !isPaused" class="text-center mb-4">
         Your turn
         <span v-if="serverMode === 'fast'" class="text-danger ms-2"><i class="fa-regular fa-clock"></i> {{ timeRemaining }}s</span>
         <span v-if="serverMode === 'double'" class="text-info ms-2 fs-5">Tahů: {{ movesLeft }}</span>
       </h2>
-      <h2 v-if="!Imove && !winner && playersConnected === 2" class="text-center mb-4">
+      <h2 v-if="!Imove && !winner && playersConnected === 2 && !isPaused" class="text-center mb-4">
         Opponent's turn
         <span v-if="serverMode === 'fast'" class="text-danger ms-2"><i class="fa-regular fa-clock"></i> {{ timeRemaining }}s</span>
         <span v-if="serverMode === 'double'" class="text-info ms-2 fs-5">Tahů: {{ movesLeft }}</span>
       </h2>
 
       <!-- Informace o disconectu (60s timer) -->
-      <div v-if="playersConnected === 2 && opponentNick === 'Odpojen (Čekám)'" class="alert alert-warning">
-        Soupeř se odpojil! Čekám 60 sekund na jeho návrat...
+      <div v-if="isPaused" class="alert alert-warning">
+        Soupeř se odpojil. Hra i časomíra jsou pozastavené.
+        <span v-if="reconnectSecondsLeft"> Čekám ještě přibližně {{ reconnectSecondsLeft }} s.</span>
       </div>
 
       <!-- Chat okno (Glass design) -->
@@ -71,7 +72,7 @@
     </div>
   </div>
 
-  <div v-if="playersConnected < 2"
+  <div v-if="isWaitingForOpponent"
        class="bg-dark bg-opacity-25 position-fixed top-0 start-0 d-flex justify-content-center align-items-center"
        style="width: 100vw; height: 100vh; backdrop-filter: blur(3px)">
     <div class="text-center modal-box p-5">
@@ -93,8 +94,8 @@
     </div>
   </div>
 
-  <!-- Nový Modal: Konečné odpojení soupeře (Timeout) -->
-  <div v-if="opponentLeft"
+  <!-- Nouzová cesta pro roomu bez výsledku (běžně server po odchodu přidělí výhru). -->
+  <div v-if="opponentLeft && !winner && !isDraw"
        class="bg-dark bg-opacity-25 position-fixed top-0 start-0 d-flex justify-content-center align-items-center"
        style="width: 100vw; height: 100vh; backdrop-filter: blur(3px)">
     <div class="text-center modal-box p-5">
@@ -103,7 +104,7 @@
     </div>
   </div>
 
-  <div v-if="(winner || isDraw) && !opponentLeft"
+  <div v-if="winner || isDraw"
        class="bg-dark bg-opacity-25 position-fixed top-0 start-0 d-flex justify-content-center align-items-center"
        style="width: 100vw; height: 100vh; backdrop-filter: blur(3px)">
     <div class="text-center modal-box p-5">
@@ -133,12 +134,33 @@
       </div>
     </div>
   </div>
+
+  <div v-if="reconnectFailed"
+       class="bg-dark bg-opacity-25 position-fixed top-0 start-0 d-flex justify-content-center align-items-center"
+       style="width: 100vw; height: 100vh; backdrop-filter: blur(3px)">
+    <div class="text-center modal-box p-5">
+      <h2 class="mb-4">Tuto hru už nelze obnovit</h2>
+      <p>Čas pro návrat vypršel nebo místnost už skončila.</p>
+      <button @click="returnHomeAfterReconnectFailure" class="btn btn-play w-100">Zpět do menu</button>
+    </div>
+  </div>
+
+  <div v-else-if="connectionLost"
+       class="bg-dark bg-opacity-25 position-fixed top-0 start-0 d-flex justify-content-center align-items-center"
+       style="width: 100vw; height: 100vh; backdrop-filter: blur(3px)">
+    <div class="text-center modal-box p-5">
+      <h2 class="mb-4">Obnovuji spojení…</h2>
+      <p>Držím ti místo ve hře a zkouším se vrátit do stejné místnosti.</p>
+    </div>
+  </div>
 </template>
 
 <script>
 import { getClient } from "@/utils/socket";
 import GameField from "@/components/game-field.vue";
 import { useStore } from "@/stores/store";
+
+const RECONNECT_RETRY_DELAYS = [0, 300, 700, 1500, 2500];
 
 export default {
   name: "gameView",
@@ -154,6 +176,10 @@ export default {
       currentTurn: "",
       winner: "",
       isDraw: false,
+      isPaused: false,
+      reconnectDeadline: 0,
+      reconnectNow: Date.now(),
+      countdownInterval: null,
       
       type: this.$route.params.type,
       mode: this.$route.params.mode,
@@ -169,15 +195,36 @@ export default {
       emojis: ['😀','😂','😎','😍','😡','👍','👎','🎉','🔥','👀','🤡','👻'],
       eloDiff: null,
       isCustomCreator: false,
-      isCopied: false
+      isCopied: false,
+      reconnectInProgress: false,
+      reconnectFailed: false,
+      connectionLost: false,
+      isIntentionalLeave: false,
+      isUnmounted: false,
+      resumeHandler: null
     }
   },
   computed: {
     Imove() {
-      return this.room && this.currentTurn === this.room.sessionId;
+      return this.canMove;
+    },
+    canMove() {
+      return this.room &&
+        this.currentTurn === this.room.sessionId &&
+        !this.winner &&
+        !this.isDraw &&
+        !this.isPaused &&
+        this.playersConnected === 2;
     },
     playersConnected() {
       return this.players.size;
+    },
+    isWaitingForOpponent() {
+      return !this.winner && !this.isDraw && !this.isPaused && this.playersConnected < 2;
+    },
+    reconnectSecondsLeft() {
+      if (!this.reconnectDeadline) return 0;
+      return Math.max(0, Math.ceil((this.reconnectDeadline - this.reconnectNow) / 1000));
     },
     didIWin() {
       return this.room && this.winner === this.room.sessionId;
@@ -205,6 +252,19 @@ export default {
     }
   },
   async mounted() {
+    this.isUnmounted = false;
+    this.countdownInterval = window.setInterval(() => {
+      this.reconnectNow = Date.now();
+    }, 1000);
+    this.resumeHandler = () => {
+      if (document.visibilityState === 'visible') {
+        void this.recoverConnection();
+      }
+    };
+    window.addEventListener('online', this.resumeHandler);
+    document.addEventListener('visibilitychange', this.resumeHandler);
+    let hadSavedGame = false;
+
     // Pro custom a ranked hry (roomId nebo createCustom v URL) vyžadujeme přihlášení
     if ((this.$route.query.roomId || this.$route.query.createCustom) && !this.store.user) {
       this.$router.push({ path: '/login', query: { redirect: this.$route.fullPath } });
@@ -230,15 +290,10 @@ export default {
       };
 
       const token = localStorage.getItem('reconnectionToken');
+      hadSavedGame = Boolean(token);
 
       if (token) {
-        try {
-          this.room = await this.client.reconnect(token);
-        } catch (e) {
-          // Relace propadla (timer 60s vypršel, nebo server zrušil místnost)
-          localStorage.removeItem('reconnectionToken');
-          localStorage.removeItem('reconnectExpire');
-        }
+        this.room = await this.reconnectWithRetry(token);
       }
 
       if (!this.room) {
@@ -260,43 +315,112 @@ export default {
           // Unranked / Casual
           this.room = await this.client.joinOrCreate(roomName, payload);
         }
-        localStorage.setItem('reconnectionToken', this.room.reconnectionToken);
-        // Uložíme expirační čas pro HomeView (aktuální čas + 60 vteřin)
-        localStorage.setItem('reconnectExpire', Date.now() + 60000);
-        localStorage.setItem('gameType', this.type);
-        localStorage.setItem('gameMode', this.mode);
-      } else {
-        // Po úspěšném reconnectu obnovíme expiraci, kdyby zase spadl
-        localStorage.setItem('reconnectionToken', this.room.reconnectionToken);
-        localStorage.setItem('reconnectExpire', Date.now() + 60000);
       }
 
-      this.room.onMessage("chat", (msg) => {
+      this.persistRoom(this.room);
+      this.attachRoomHandlers(this.room);
+      
+    } catch (e) {
+      console.error("JOIN ERROR", e);
+      if (hadSavedGame) {
+        this.clearSavedGame();
+        this.reconnectFailed = true;
+      } else {
+        this.$router.push('/');
+      }
+    }
+  },
+  beforeUnmount() {
+    this.isUnmounted = true;
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+    }
+    if (this.resumeHandler) {
+      window.removeEventListener('online', this.resumeHandler);
+      document.removeEventListener('visibilitychange', this.resumeHandler);
+    }
+
+    // Navigace mimo hru znamená přerušení, ne dobrovolnou kapitulaci.
+    // Server proto rezervuje místo na reconnect.
+    if (this.room && !this.isIntentionalLeave) {
+      void this.room.leave(false).catch(() => undefined);
+    }
+  },
+  methods: {
+    wait(milliseconds) {
+      return new Promise(resolve => window.setTimeout(resolve, milliseconds));
+    },
+    async reconnectWithRetry(token) {
+      let lastError;
+
+      for (const delay of RECONNECT_RETRY_DELAYS) {
+        if (this.isUnmounted || this.isIntentionalLeave) break;
+        if (delay) await this.wait(delay);
+
+        try {
+          return await this.client.reconnect(token);
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      throw lastError || new Error("Reconnect cancelled");
+    },
+    persistRoom(room) {
+      localStorage.setItem('reconnectionToken', room.reconnectionToken);
+      localStorage.setItem('reconnectExpire', Date.now() + 60000);
+      localStorage.setItem('gameType', this.type);
+      localStorage.setItem('gameMode', this.mode);
+    },
+    clearSavedGame() {
+      localStorage.removeItem('reconnectionToken');
+      localStorage.removeItem('reconnectExpire');
+      localStorage.removeItem('gameType');
+      localStorage.removeItem('gameMode');
+      sessionStorage.removeItem('isCustomGame');
+    },
+    attachRoomHandlers(room) {
+      room.onMessage("chat", (msg) => {
         this.chatMessages.push(msg);
-        this.scrollToBottom();
       });
 
-      this.room.onMessage("elo_changed", (data) => {
+      room.onMessage("elo_changed", (data) => {
         this.eloDiff = data.diff;
       });
 
-      this.room.onMessage("opponent_left", () => {
+      room.onMessage("opponent_disconnected", (data) => {
+        this.isPaused = true;
+        this.reconnectDeadline = data.deadline || 0;
+      });
+
+      room.onMessage("opponent_reconnected", () => {
+        this.opponentLeft = false;
+      });
+
+      room.onMessage("opponent_left", () => {
         this.opponentLeft = true;
       });
 
-      this.room.onStateChange((state) => {
-        // Pokaždé když se stav změní, aktualizujeme expiraci (protože hra žije)
+      room.onLeave(() => {
+        if (!this.isIntentionalLeave && !this.isUnmounted) {
+          this.connectionLost = true;
+          void this.recoverConnection();
+        }
+      });
+
+      room.onStateChange((state) => {
         localStorage.setItem('reconnectExpire', Date.now() + 60000);
         
         this.fields = [...state.board];
         this.currentTurn = state.currentTurn;
         this.winner = state.winner;
         this.isDraw = state.isDraw;
+        this.isPaused = state.isPaused;
+        this.reconnectDeadline = state.reconnectDeadline;
         this.timeRemaining = state.timeRemaining;
         this.movesLeft = state.movesLeft;
         this.serverMode = state.mode;
         
-        // Pokud hra začne znovu (Odveta prošla), resetujeme flag
         if (!this.winner && !this.isDraw) {
            this.iWantRematch = false;
         }
@@ -308,29 +432,40 @@ export default {
           this.players.set(sessionId, player);
         });
       });
-      
-    } catch (e) {
-      console.error("JOIN ERROR", e);
-      this.$router.push('/');
-    }
-  },
-  beforeUnmount() {
-    if (this.room && this.room.connection) {
-      // Pokud hráč odejde z Vue routy (např. klikne na logo domů), 
-      // Socket by normálně zůstal viset v paměti a backend by si myslel, 
-      // že je hráč stále ve hře. Tím pádem by reconnect() selhal.
-      // Proto zde musíme natvrdo zavřít WebSocket spojení, aby server
-      // poznal, že jsme vypadli, a zapnul 60s odpočet pro reconnect.
-      try {
-        this.room.connection.close();
-      } catch (e) {
-        console.error(e);
+    },
+    async recoverConnection() {
+      if (!this.connectionLost || this.reconnectInProgress || this.isIntentionalLeave || this.isUnmounted) return;
+
+      const token = localStorage.getItem('reconnectionToken');
+      if (!token) {
+        this.reconnectFailed = true;
+        return;
       }
-    }
-  },
-  methods: {
+
+      this.reconnectInProgress = true;
+      try {
+        const room = await this.reconnectWithRetry(token);
+        if (this.isUnmounted || this.isIntentionalLeave) {
+          void room.leave(false);
+          return;
+        }
+
+        this.room = room;
+        this.persistRoom(room);
+        this.attachRoomHandlers(room);
+        this.connectionLost = false;
+        this.reconnectFailed = false;
+      } catch (error) {
+        if (!this.isUnmounted && !this.isIntentionalLeave) {
+          this.clearSavedGame();
+          this.reconnectFailed = true;
+        }
+      } finally {
+        this.reconnectInProgress = false;
+      }
+    },
     handleMove(index) {
-      if (this.room && this.currentTurn === this.room.sessionId && !this.winner) {
+      if (this.canMove) {
         this.room.send('action', { index: index });
       }
     },
@@ -352,15 +487,26 @@ export default {
       this.showEmojis = false;
     },
     voteRematch() {
-      if (this.room) {
+      if (this.room && !this.isPaused) {
         this.room.send('rematch');
         this.iWantRematch = true;
       }
     },
-    leaveRoom() {
-      if (this.room) this.room.leave();
-      localStorage.removeItem('reconnectionToken');
-      localStorage.removeItem('reconnectExpire');
+    async leaveRoom() {
+      this.isIntentionalLeave = true;
+      this.clearSavedGame();
+      if (this.room) {
+        try {
+          await this.room.leave();
+        } catch (error) {
+          console.error("LEAVE ERROR", error);
+        }
+      }
+      this.$router.push('/');
+    },
+    returnHomeAfterReconnectFailure() {
+      this.isIntentionalLeave = true;
+      this.clearSavedGame();
       this.$router.push('/');
     }
   }
