@@ -1,15 +1,11 @@
-import {io, Socket} from "socket.io-client";
+import { Client } from "colyseus.js";
+import local from "../conf/local";
 
-let socket : Socket | null = null;
+let client: Client | null = null;
 
-function getSocket(){
-    if(socket == null){
-        socket = io('http://localhost:9000');
-        // socket = io('http://tictactoe-backend.adaptable.app:80');
+export function getClient() {
+    if (client === null) {
+        client = new Client(local.SOCKET_URL);
     }
-    return socket;
+    return client;
 }
-
-export { getSocket, }
-
-

@@ -11,4 +11,8 @@ export default class Stats {
         return await axios.get(this.url + "stats/getUserStats", {headers: {'x-access-token':  this.store.user.accessToken}});
     }
 
+    async getLeaderboard(mode: string){
+        const userId = this.store.user?.id || '';
+        return await axios.get(this.url + `stats/leaderboard/${mode}?userId=${userId}`);
+    }
 }

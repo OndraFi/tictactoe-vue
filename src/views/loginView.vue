@@ -7,10 +7,10 @@
         <input v-model="username"
                type="text"
                class="w-100 my-1 form-control"
-               placeholder="username"
+               placeholder="username / email"
                id="username"
                required>
-        <label for="username">username</label>
+        <label for="username">username / email</label>
       </div>
       <div class="form-floating mb-3">
         <input v-model="password"
@@ -66,7 +66,8 @@ export default {
         console.log(response);
         if (response.data) {
           this.store.user = response.data;
-          this.$router.push('/');
+          const redirectPath = this.$route.query.redirect || '/';
+          this.$router.push(redirectPath);
         }
       }).catch(e => {
         if(e.response.status === 401) {

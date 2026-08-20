@@ -4,13 +4,19 @@
       <li class="nav-item"><router-link to="/" class="nav-link px-2 text-light">Home</router-link></li>
       <li class="nav-item"><router-link to="/game-modes" class="nav-link px-2 text-light">Game Modes</router-link></li>
     </ul>
-    <p class="text-center text-light">© 2023 Ondřej Fialka</p>
+    <p class="text-center text-light">© {{ currentYear }} Ondřej Fialka</p>
   </footer>
 </template>
 
 <script>
 export default {
-  name: "footer"
+  // eslint-disable-next-line vue/multi-word-component-names
+  name: "Footer",
+  data() {
+    return {
+      currentYear: new Date().getFullYear()
+    }
+  }
 }
 </script>
 

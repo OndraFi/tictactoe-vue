@@ -48,11 +48,41 @@ select option:hover {
 .form-control:focus{
   color: white;
   background-color: rgba(255, 255, 255, 0.12);
-  //border-radius: 16px;
   border: 1px solid white;
-  //box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  //backdrop-filter: blur(8.7px);
-  //-webkit-backdrop-filter: blur(8.7px);
   box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.25);
 }
 
+@import 'variables';
+
+.custom-dropdown-btn {
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 0.75rem;
+  height: calc(3.5rem + 2px);
+  background-image: url("../img/svg/select.svg");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px 12px;
+}
+.custom-dropdown-btn::after {
+  display: none !important; /* schovat default caret */
+}
+.custom-dropdown-menu {
+  background-color: rgba(40, 44, 52, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+}
+.custom-dropdown-menu .dropdown-item {
+  color: white;
+  padding: 10px 20px;
+  transition: all 0.2s ease;
+}
+.custom-dropdown-menu .dropdown-item:hover,
+.custom-dropdown-menu .dropdown-item:focus {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: $secondary;
+  text-shadow: 0 0 8px rgba($secondary, 0.5);
+}

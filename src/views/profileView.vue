@@ -13,13 +13,22 @@
       </svg>
     </button>
 
-    <div v-if="stats">
-      <ul class="list-unstyled">
-        <li class="my-1">wins: {{ stats.wins }}</li>
-        <li class="my-1">losses: {{ stats.losses }}</li>
-        <li class="my-1">draws: {{ stats.draws }}</li>
-        <li class="my-1">points: {{ stats.points }}</li>
-      </ul>
+    <div v-if="stats && Object.keys(stats).length > 0" class="row justify-content-center mt-4">
+      <div v-for="(stat, mode) in stats" :key="mode" class="col-12 col-md-4 mb-4">
+        <div class="card text-white p-3 text-center" style="background-image: linear-gradient(-60deg, #ff5858 0%, #f09819 100%); border: none; border-radius: 15px; box-shadow: 0 4px 15px rgba(240, 152, 25, 0.4);">
+          <h4 class="text-uppercase mb-3 fw-bold">{{ mode.replace('_', ' ') }}</h4>
+          <h2 class="text-white fw-bold display-6">{{ stat.elo }} ELO</h2>
+          <hr class="bg-light" style="opacity: 0.5;">
+          <div class="d-flex justify-content-around mt-2">
+            <div><span class="fw-bold" style="color: #d4ffbc;">W</span><br>{{ stat.wins }}</div>
+            <div><span class="fw-bold" style="color: #ffb8b8;">L</span><br>{{ stat.losses }}</div>
+            <div><span class="text-light fw-bold">D</span><br>{{ stat.draws }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div v-else-if="stats">
+      <p class="mt-4">Zatím jsi nehrál žádný Ranked zápas.</p>
     </div>
     <div v-else>
       <div class="spinner-border" role="status">
