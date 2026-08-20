@@ -368,7 +368,7 @@ export default {
     },
     persistRoom(room) {
       localStorage.setItem('reconnectionToken', room.reconnectionToken);
-      localStorage.setItem('reconnectExpire', Date.now() + 60000);
+      localStorage.removeItem('reconnectExpire');
       localStorage.setItem('gameType', this.type);
       localStorage.setItem('gameMode', this.mode);
     },
@@ -409,8 +409,6 @@ export default {
       });
 
       room.onStateChange((state) => {
-        localStorage.setItem('reconnectExpire', Date.now() + 60000);
-        
         this.fields = [...state.board];
         this.currentTurn = state.currentTurn;
         this.winner = state.winner;

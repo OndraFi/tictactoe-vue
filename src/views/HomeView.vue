@@ -193,7 +193,7 @@ export default {
       store: store,
       user: store.user,
       playersInGame: null,
-      hasSavedGame: Boolean(localStorage.getItem('reconnectionToken') && parseInt(localStorage.getItem('reconnectExpire') || '0') > Date.now()),
+      hasSavedGame: false,
       
       rankedDimension: "3",
       rankedMode: "classic",
@@ -222,7 +222,13 @@ export default {
   mounted() {
     // interval for checking reconnect state dynamically
     setInterval(() => {
-      this.hasSavedGame = Boolean(localStorage.getItem('reconnectionToken') && parseInt(localStorage.getItem('reconnectExpire') || '0') > Date.now());
+      const token = localStorage.getItem('reconnectionToken');
+      const expire = localStorage.getItem('reconnectExpire');
+      if (token && expire && Date.now() < parseInt(expire)) {
+        this.hasSavedGame = true;
+      } else {
+        this.hasSavedGame = false;
+      }
     }, 1000);
   },
   methods: {
@@ -230,14 +236,6 @@ export default {
        const type = localStorage.getItem('gameType') || '3';
        const mode = localStorage.getItem('gameMode') || 'classic';
        this.$router.push(`/game-${type}-${mode}`);
-    },
-    discardSavedGame() {
-      localStorage.removeItem('reconnectionToken');
-      localStorage.removeItem('reconnectExpire');
-      localStorage.removeItem('gameType');
-      localStorage.removeItem('gameMode');
-      sessionStorage.removeItem('isCustomGame');
-      this.hasSavedGame = false;
     },
     async findRankedMatch() {
       if (!this.user || this.hasSavedGame) return;
