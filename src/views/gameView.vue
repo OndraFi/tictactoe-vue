@@ -490,15 +490,13 @@ export default {
         this.iWantRematch = true;
       }
     },
-    async leaveRoom() {
+    leaveRoom() {
       this.isIntentionalLeave = true;
       this.clearSavedGame();
       if (this.room) {
-        try {
-          await this.room.leave();
-        } catch (error) {
-          console.error("LEAVE ERROR", error);
-        }
+        this.room.leave().catch(error => {
+          console.error("LEAVE ERROR (Background)", error);
+        });
       }
       this.$router.push('/');
     },
