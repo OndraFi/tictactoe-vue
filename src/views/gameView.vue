@@ -159,8 +159,7 @@ export default {
       chatInput: "",
       showEmojis: false,
       isCopied: false,
-      emojis: ['😀','😂','😎','😍','😡','👍','👎','🎉','🔥','👀','🤡','👻'],
-      suspendOnUnload: null
+      emojis: ['😀','😂','😎','😍','😡','👍','👎','🎉','🔥','👀','🤡','👻']
     }
   },
   computed: {
@@ -192,10 +191,6 @@ export default {
       return;
     }
 
-    // Zavření tabu není odchod ze hry - server nám má podržet místo.
-    this.suspendOnUnload = () => this.game.suspendGame();
-    window.addEventListener('beforeunload', this.suspendOnUnload);
-
     const started = await this.game.enterGame({
       type: this.$route.params.type,
       mode: this.$route.params.mode,
@@ -209,14 +204,10 @@ export default {
       this.$router.replace({ query: { roomId: this.game.roomId } });
     }
   },
-  beforeUnmount() {
-    if (this.suspendOnUnload) {
-      window.removeEventListener('beforeunload', this.suspendOnUnload);
-    }
-    // Varianta (a): odchod z komponenty zatím znamená přerušení spojení.
-    // Server proto rezervuje místo na reconnect.
-    this.game.suspendGame();
-  },
+  // Spojení do hry vlastní store, ne tahle komponenta. Odchod na jinou stránku
+  // proto hru nepřerušuje - soupeř nás nevidí jako odpojené a v režimu Fast
+  // nám dál běží časomíra, takže odchodem nejde soupeři pozastavit hru.
+  // Ukončuje se výhradně přes leaveGame(), zavřením tabu nebo výpadkem sítě.
   methods: {
     submitChat() {
       this.game.sendChat(this.chatInput);

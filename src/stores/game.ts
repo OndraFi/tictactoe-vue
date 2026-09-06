@@ -16,6 +16,7 @@ const ACTIVE_GAME_TTL_MS = 55 * 1000;
 let room: Room | null = null;
 let queueRoom: Room | null = null;
 let queueTicker: ReturnType<typeof setInterval> | null = null;
+let unloadHandler: (() => void) | null = null;
 
 /**
  * Každé připojení dostane své číslo. Handlery staré místnosti tak po reconnectu
@@ -67,6 +68,10 @@ interface GameStoreState {
     hasState: boolean;
     sessionId: string;
     roomId: string;
+    // Kam patří živé spojení. Podle toho poznáme, jestli se uživatel vrátil
+    // do stejné hry, nebo otevřel jinou.
+    currentType: string;
+    currentMode: string;
 
     phase: GamePhase;
     board: string[];
@@ -98,6 +103,8 @@ function runtimeDefaults() {
         hasState: false,
         sessionId: '',
         roomId: '',
+        currentType: '',
+        currentMode: '',
 
         phase: 'waiting' as GamePhase,
         board: [] as string[],
@@ -185,6 +192,17 @@ export const useGameStore = defineStore('game', {
         hasActiveGame(state): boolean {
             return Boolean(state.activeGame && state.activeGame.expiresAt > Date.now());
         },
+        /**
+         * Spojení do hry drží store, ne komponenta - odchod na homepage tedy
+         * hru nepřerušuje a soupeř nás nevidí jako odpojené.
+         */
+        hasLiveGame(state): boolean {
+            return state.connection === 'connected' || state.connection === 'reconnecting';
+        },
+        /** Hra dohrála, zatímco byl hráč jinde - výsledek si ještě nepřevzal. */
+        finishedWhileAway(state): boolean {
+            return state.connection === 'connected' && state.phase === 'finished';
+        },
         inviteLink(state): string {
             if (!state.roomId) return '';
             return `${window.location.origin}/game-${state.dimension}-${state.serverMode}?roomId=${state.roomId}`;
@@ -220,6 +238,19 @@ export const useGameStore = defineStore('game', {
         // --- Připojení ----------------------------------------------------
 
         async enterGame(params: EnterGameParams) {
+            // Vrátili jsme se do hry, jejíž spojení pořád běží - není co navazovat.
+            if (room && this.hasLiveGame &&
+                this.currentType === params.type && this.currentMode === params.mode &&
+                (!params.roomId || params.roomId === this.roomId)) {
+                return true;
+            }
+
+            // Otevřel jinou hru, než kterou má rozehranou. Té staré držíme místo,
+            // ať ji nezahodíme tichou kapitulací.
+            if (room) {
+                this.suspendGame();
+            }
+
             this.resetRuntime();
             this.connection = 'connecting';
 
@@ -317,7 +348,10 @@ export const useGameStore = defineStore('game', {
 
             this.sessionId = currentRoom.sessionId;
             this.roomId = currentRoom.roomId;
+            this.currentType = type;
+            this.currentMode = mode;
             this.connection = 'connected';
+            this.watchWindowUnload();
 
             currentRoom.onStateChange((state: any) => {
                 if (isStale()) return;
@@ -448,11 +482,28 @@ export const useGameStore = defineStore('game', {
 
         // --- Odchod -------------------------------------------------------
 
+        /**
+         * Spojení přežívá odchod z herní obrazovky, ale ne zavření tabu.
+         * Listener proto patří sem, ne do komponenty, která se odmontuje dřív.
+         */
+        watchWindowUnload() {
+            if (unloadHandler) return;
+            unloadHandler = () => this.suspendGame();
+            window.addEventListener('beforeunload', unloadHandler);
+        },
+
+        stopWatchingWindowUnload() {
+            if (!unloadHandler) return;
+            window.removeEventListener('beforeunload', unloadHandler);
+            unloadHandler = null;
+        },
+
         /** Dobrovolný odchod - server hru okamžitě uzavře, žádné 60s okno. */
         leaveGame() {
             const leaving = room;
             room = null;
             generation++;
+            this.stopWatchingWindowUnload();
             this.clearActiveGame();
             this.resetRuntime();
 
@@ -471,6 +522,7 @@ export const useGameStore = defineStore('game', {
             const leaving = room;
             room = null;
             generation++;
+            this.stopWatchingWindowUnload();
 
             if (!leaving) return;
 

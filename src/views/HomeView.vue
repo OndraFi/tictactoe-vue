@@ -10,11 +10,26 @@
 <!--    </div>-->
     <div v-if="hasSavedGame" class="w-100 block my-5 p-5 ms-auto me-auto row align-items-center" style="border: 3px solid #f09819; box-shadow: 0 0 20px rgba(240, 152, 25, 0.4);">
       <div class="col-12 col-md-6 text-center text-md-start">
-        <h2 class="mb-0">Opustil jsi rozehranou hru!</h2>
-        <p class="text-warning mb-0 mt-2">Máš {{ savedGameSecondsLeft }} sekund na návrat, jinak prohráváš.</p>
+        <!-- Hra dohrála, zatímco byl hráč jinde -->
+        <template v-if="game.finishedWhileAway">
+          <h2 class="mb-0">Tvoje hra skončila!</h2>
+          <p class="text-warning mb-0 mt-2">Podívej se, jak dopadla.</p>
+        </template>
+        <!-- Spojení pořád běží - hráč se jen prochází po webu -->
+        <template v-else-if="game.hasLiveGame">
+          <h2 class="mb-0">Máš rozehranou hru!</h2>
+          <p class="text-warning mb-0 mt-2">Hra běží dál, soupeř na tebe čeká.</p>
+        </template>
+        <!-- Spojení spadlo, běží 60s okno na návrat -->
+        <template v-else>
+          <h2 class="mb-0">Opustil jsi rozehranou hru!</h2>
+          <p class="text-warning mb-0 mt-2">Máš {{ savedGameSecondsLeft }} sekund na návrat, jinak prohráváš.</p>
+        </template>
       </div>
       <div class="col-12 col-md-6 text-center mt-4 mt-md-0">
-        <button @click="reconnectGame" class="btn btn-play w-100">Zpět do hry (Reconnect)</button>
+        <button @click="reconnectGame" class="btn btn-play w-100">
+          {{ game.finishedWhileAway ? 'Zobrazit výsledek' : 'Zpět do hry' }}
+        </button>
       </div>
     </div>
 
@@ -210,6 +225,8 @@ export default {
       return this.store.user;
     },
     hasSavedGame() {
+      // Živé spojení i přerušená hra shodně blokují start nové hry.
+      if (this.game.hasLiveGame) return true;
       const saved = this.game.activeGame;
       return Boolean(saved && saved.expiresAt > this.now);
     },
@@ -245,6 +262,11 @@ export default {
   },
   methods: {
     reconnectGame() {
+      // U živé hry víme, kam patří, i když už activeGame není (dohraná hra).
+      if (this.game.hasLiveGame && this.game.currentType) {
+        this.$router.push(`/game-${this.game.currentType}-${this.game.currentMode}`);
+        return;
+      }
       const saved = this.game.activeGame;
       if (!saved) return;
       this.$router.push(`/game-${saved.type}-${saved.mode}`);
