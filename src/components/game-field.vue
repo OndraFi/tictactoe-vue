@@ -18,10 +18,14 @@ export default {
     }
   },
   created() {
-    // Definujeme Pixi objekty mimo reaktivní data()! 
+    // Definujeme Pixi objekty mimo reaktivní data()!
     // Kdyby byly v data(), Vue by je obalilo do Proxy a PixiJS by spadlo na native Canvas API.
     this.app = null;
     this.marks = [];
+    // initPixi je asynchronní. Bez těchhle dvou příznaků může druhý patch stavu
+    // zavolat destroy() na instanci, kterou první patch právě zahazuje.
+    this.isInitializing = false;
+    this.isDestroyed = false;
   },
   watch: {
     // Reaktivně posloucháme změny od Colysea a přenášíme je do WebGL canvasu
@@ -39,11 +43,20 @@ export default {
     }
   },
   beforeUnmount() {
-    if (this.app) {
-      this.app.destroy(true, { children: true, texture: true, baseTexture: true });
-    }
+    this.isDestroyed = true;
+    this.teardownPixi();
   },
   methods: {
+    teardownPixi() {
+      const app = this.app;
+      // Referenci nulujeme PŘED destroy(), aby se souběžný updateBoard
+      // nepokusil sáhnout na instanci, která se právě ruší.
+      this.app = null;
+      this.marks = [];
+      if (app) {
+        app.destroy(true, { children: true, texture: true, baseTexture: true });
+      }
+    },
     async initPixi(fieldsArray) {
       // Vypočítáme velikost plátna
       const length = fieldsArray ? fieldsArray.length : (this.fields ? this.fields.length : 9);
@@ -52,15 +65,22 @@ export default {
       this.cellSize = size / this.dimension;
 
       // Inicializace Pixi v8 (S průhledným pozadím)
-      this.app = new PIXI.Application();
-      await this.app.init({ 
-        width: size, 
-        height: size, 
+      const app = new PIXI.Application();
+      await app.init({
+        width: size,
+        height: size,
         backgroundAlpha: 0, // Zprůhlední samotný <canvas>
         resolution: window.devicePixelRatio || 1,
-        autoDensity: true 
+        autoDensity: true
       });
-      
+
+      // Komponenta mohla mezitím zmizet - hotové plátno pak jen zahodíme.
+      if (this.isDestroyed || !this.$refs.pixiContainer) {
+        app.destroy(true, { children: true, texture: true, baseTexture: true });
+        return;
+      }
+
+      this.app = app;
       // Vložení canvasu do Vue ref containeru
       this.$refs.pixiContainer.appendChild(this.app.canvas);
 
@@ -109,18 +129,27 @@ export default {
       }
     },
     async updateBoard(newFields) {
-      if (!this.app || !newFields) return;
-      
+      if (!newFields || this.isDestroyed) return;
+      // Přestavba plátna běží na await. Dokud neskončí, další patch ji nesmí spustit znovu.
+      if (this.isInitializing) return;
+      if (!this.app) return;
+
       // Pokud se změnila velikost pole (např. server poslal 100 místo úvodních 9)
       if (newFields.length > 0 && newFields.length !== this.marks.length) {
-        this.app.destroy(true, { children: true, texture: true, baseTexture: true });
-        this.marks = [];
-        // Odebereme starý canvas z DOM, metoda appendChild v initPixi přidá nový
-        this.$refs.pixiContainer.innerHTML = '';
-        await this.initPixi(newFields);
+        this.isInitializing = true;
+        try {
+          this.teardownPixi();
+          // Odebereme starý canvas z DOM, metoda appendChild v initPixi přidá nový
+          if (this.$refs.pixiContainer) this.$refs.pixiContainer.innerHTML = '';
+          await this.initPixi(newFields);
+        } finally {
+          this.isInitializing = false;
+        }
+        // Patche, které dorazily během await, jsme zahodili - dorovnáme na aktuální prop.
+        return this.updateBoard(this.fields);
       }
-      
-      if (newFields.length !== this.marks.length) return;
+
+      if (!this.app || newFields.length !== this.marks.length) return;
       
       for (let i = 0; i < newFields.length; i++) {
         const mark = newFields[i];
